@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Session activity",
+    "description": "A sidebar panel listing the conversations that are running, finished but not yet opened, or waiting on your reply — one click opens the conversation. Status uses DSH's own language: amber for a pending reply, a rotating ring while running, green when finished."
+  }
+}
