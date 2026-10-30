@@ -1,4 +1,4 @@
-# dsh-session-activity bundle patch: inserts the dual-face plugin row into the
+# dsh-session-inbox bundle patch: inserts the dual-face plugin row into the
 # web profile roster. Applied as a profile bundle layer (the dsh.bundle.patch
 # manifest field) over dsh-base; activate with
 #   dsh plugin --profile web add <package>
@@ -9,5 +9,5 @@
 # the client runtime), and the dsh.client declaration in package.json makes the
 # browser half (exports "./client") load in the web GUI.
 - insert:
-    - id: dsh-session-activity
-      name: 'dsh-session-activity'
+    - id: dsh-session-inbox
+      name: 'dsh-session-inbox'

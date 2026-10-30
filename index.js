@@ -1,23 +1,13 @@
-// dsh-session-activity — host half.
+// dsh-session-inbox — host half.
 //
-// One job: register the `sessionActivity` session projection, a pure fold of the
+// One job: register the `sessionInbox` session projection, a pure fold of the
 // committed session log into "when did this conversation last finish a turn, and
-// how". The client reads it per session as `projectionValues.sessionActivity` to
-// build the panel's recent-completions list; nothing else is inferred here, no
-// session event is written, and no tool is registered.
+// how". The client reads it per session as `projectionValues.sessionInbox` to
+// build the panel's recent-completions feed.
 //
-// It also owns one tiny reporting route (DIAGNOSTICS) because a crashed slot
-// occupant is invisible in the browser and the Harness UI has no host-side way
-// to read a client error:
-//   [dsh-session-activity] client stage=load
-//   [dsh-session-activity] client stage=apply list=1 status=1
-//   [dsh-session-activity] client stage=render rows=3 pending=1 running=1 done=1 statusSource=1
-//   [dsh-session-activity] client stage=crash message=...
-
-const ROUTE = '/dsh-session-activity/report'
-
-/** Keep the reporting route on while the panel is being brought up. */
-const DIAGNOSTICS = true
+// Nothing is inferred on the host, no session event is written, and no tool is
+// registered: every other fact the panel shows is already computed by the client
+// runtime (sessions list + session status).
 
 /** The wire/state value before any turn finished. */
 const EMPTY = Object.freeze({ turn: 0, time: 0, reason: '' })
@@ -29,7 +19,7 @@ const EMPTY = Object.freeze({ turn: 0, time: 0, reason: '' })
  */
 const identitySchema = Object.freeze({ parse: (value) => value })
 
-export const name = 'dsh-session-activity'
+export const name = 'dsh-session-inbox'
 
 /** The projection registry must exist before this row activates. */
 export const inject = ['sessionProjections']
@@ -53,7 +43,7 @@ function applyEvent(state, event) {
 }
 
 /**
- * Resolve one optional service without making the whole row depend on it.
+ * Resolve one service by key, falling back to the context property.
  * @param ctx host plugin context.
  * @param key service key.
  */
@@ -62,7 +52,7 @@ function serviceOf(ctx, key) {
     const viaGet = typeof ctx.get === 'function' ? ctx.get(key) : undefined
     if (viaGet !== undefined && viaGet !== null) return viaGet
   } catch (err) {
-    /* fall through */
+    /* fall through to the property probe */
   }
   try {
     return ctx[key]
@@ -71,52 +61,18 @@ function serviceOf(ctx, key) {
   }
 }
 
-/** Write one line to the host log (the dsh-web stdout capture). */
-function log(ctx, line) {
-  try {
-    if (ctx.logger && typeof ctx.logger.info === 'function') {
-      ctx.logger.info(line)
-      return
-    }
-  } catch (err) {
-    /* fall through to stdout */
-  }
-  console.log(line)
-}
-
 export function apply(ctx) {
   const projections = serviceOf(ctx, 'sessionProjections')
-  if (projections && typeof projections.register === 'function') {
-    ctx.effect(() => projections.register({
-      key: 'sessionActivity',
-      stateSchema: identitySchema,
-      init: () => EMPTY,
-      apply: applyEvent,
-      wire: { viewSchema: identitySchema, view: (state) => state },
-      stateVersion: 1,
-    }), 'dsh-session-activity: sessionActivity projection')
-    log(ctx, '[dsh-session-activity] host half active — sessionActivity projection registered')
-  } else {
-    log(ctx, '[dsh-session-activity] sessionProjections unavailable — recent completions will be empty')
-  }
-
-  if (DIAGNOSTICS !== true) return
-  const server = serviceOf(ctx, 'webServer')
-  if (!server || typeof server.register !== 'function') {
-    log(ctx, '[dsh-session-activity] webServer unavailable — client reports disabled')
+  if (!projections || typeof projections.register !== 'function') {
+    console.warn('[dsh-session-inbox] sessionProjections unavailable — recent completions will stay empty')
     return
   }
-
-  ctx.effect(() => server.register({
-    kind: 'exact',
-    path: ROUTE,
-    handler: (req, res) => {
-      const url = String(req.url === undefined ? '' : req.url)
-      const cut = url.indexOf('?')
-      const query = cut === -1 ? '' : url.slice(cut + 1)
-      log(ctx, '[dsh-session-activity] client ' + (query === '' ? '(no query)' : query))
-      res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' })
-      res.end('ok')
-    },
-  }), 'dsh-session-activity: report route')
+  ctx.effect(() => projections.register({
+    key: 'sessionInbox',
+    stateSchema: identitySchema,
+    init: () => EMPTY,
+    apply: applyEvent,
+    wire: { viewSchema: identitySchema, view: (state) => state },
+    stateVersion: 1,
+  }), 'dsh-session-inbox: sessionInbox projection')
 }
