@@ -1,7 +1,7 @@
 {
   "name": "dsh-session-inbox",
   "description": "Session inbox for the DeepSeek Harness web GUI: one sidebar panel listing the conversations that are running, finished but not yet opened, or waiting on your reply, plus a time-ordered feed of recently finished turns. One click opens the conversation.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "keywords": [
     "dsh",
     "dsh-plugin",

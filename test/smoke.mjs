@@ -146,7 +146,7 @@ function collect(node, predicate) {
 }
 
 // ── assertions ────────────────────────────────────────────────────────────────
-const [iconReg, panelReg] = registrations
+const [iconReg, panelReg, footerReg] = registrations
 const iconTree = expand(iconReg.component({ size: 16, active: false, ...iconReg.options.inject() }))
 const panelTree = expand(panelReg.component({ ...panelReg.options.inject() }))
 const panelText = render(panelTree)
@@ -154,12 +154,30 @@ const rows = collect(panelTree, (node) => node.type === 'li')
 const buttons = rows.map((li) => (Array.isArray(li.props.children) ? li.props.children[0] : li.props.children))
 const labels = buttons.map((button) => String(button.props['aria-label']))
 const select = collect(panelTree, (node) => node.type === 'select')[0]
+const toggle = collect(panelTree, (node) => node.type === 'button' && node.props.className === 'inbox-toggle')[0]
+
+// Sidebar foot strip: wide renders the colored counts, rail renders nothing.
+const stripWide = expand(footerReg.component({ wide: true, ...footerReg.options.inject() }))
+const stripRail = expand(footerReg.component({ wide: false, ...footerReg.options.inject() }))
+const stripChips = collect(stripWide, (node) => node.type === 'button')
+const stripKinds = stripChips.map((chip) => chip.props['data-kind'])
+const stripNumbers = stripChips.map((chip) => render(chip.props.children))
+
+// Column mode: the toggle persists, and each outcome gets its own column.
+storage.set('dsh-session-inbox:recent-columns', '1')
+const columnTree = expand(panelReg.component({ ...panelReg.options.inject() }))
+const columnNodes = collect(columnTree, (node) => node.type === 'div' && node.props.className === 'inbox-column')
+const columnBuckets = columnNodes.map((node) => node.props['data-bucket'])
+const columnHeads = columnNodes.map((node) => render(node.props.children[0]))
+const columnRows = columnNodes.map((node) => collect(node, (child) => child.type === 'li').length)
+const columnEmpty = columnNodes.map((node) => render(node).includes('columns.empty'))
+storage.delete('dsh-session-inbox:recent-columns')
 
 buttons[0].props.onClick()
 buttons[3].props.onClick()
 
 const checks = [
-  ['registers the sidebar row and the main panel', registrations.length === 2],
+  ['registers sidebar row, main panel, and footer strip', registrations.length === 3],
   ['sidebar row id matches the panel key', registrations[0].options.id === registrations[1].options.key],
   ['icon draws an attention dot', JSON.stringify(iconTree).includes('"cx":13')],
   ['three actionable rows', labels.filter((label) => /state\.(pending|running|done)/.test(label)).length === 3],
@@ -171,6 +189,15 @@ const checks = [
   ['recent skips actionable ids', !labels.slice(3).some((label) => label.includes('APPROVAL-SESSION') || label.includes('DONE-UNSEEN-SESSION'))],
   ['recent skips subagent and blank', !panelText.includes('SUBAGENT-SESSION') && !panelText.includes('BLANK-SESSION')],
   ['default recent limit is 5 of 5/10/20/50', select !== undefined && select.props.value === '5' && select.props.children.length === 4],
+  ['column toggle starts off', toggle !== undefined && toggle.props['data-on'] === '0' && toggle.props['aria-pressed'] === 'false'],
+  ['strip counts one session per state', JSON.stringify(stripKinds) === JSON.stringify(['done', 'pending', 'failed', 'running'])],
+  ['strip numbers match the fixtures', JSON.stringify(stripNumbers) === JSON.stringify(['1', '1', '1', '1'])],
+  ['strip hides in the rail', stripRail === null],
+  ['columns mode renders three buckets in order', JSON.stringify(columnBuckets) === JSON.stringify(['done', 'stopped', 'failed'])],
+  ['column heads carry a label and count', columnHeads.every((head) => typeof head === 'string' && head.length > 0)],
+  ['done column holds the finished session', columnRows[0] === 1],
+  ['stopped column is empty and says so', columnRows[1] === 0 && columnEmpty[1] === true],
+  ['failed column holds the errored session', columnRows[2] === 1],
   ['clicking the attention row opens it', opened[0] === 's-ask'],
   ['clicking a recent row opens it', opened[1] === 's-idle'],
   ['opening returns to the conversation', panels[0] === null],
