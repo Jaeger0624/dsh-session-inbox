@@ -153,6 +153,8 @@ function collect(node, predicate) {
 // ── assertions ────────────────────────────────────────────────────────────────
 const [iconReg, panelReg] = registrations
 const iconTree = expand(iconReg.component({ size: 16, active: false, ...iconReg.options.inject() }))
+const iconAnchor = collect(iconTree, (node) => node.type === 'span' && node.props.className === 'inbox-anchor')[0]
+const iconBadge = collect(iconTree, (node) => node.type === 'circle')[0]
 const panelTree = expand(panelReg.component({ ...panelReg.options.inject() }))
 const panelText = render(panelTree)
 const rows = collect(panelTree, (node) => node.type === 'li')
@@ -182,6 +184,8 @@ const checks = [
   ['registers the sidebar row and the main panel', registrations.length === 2],
   ['sidebar row id matches the panel key', registrations[0].options.id === registrations[1].options.key],
   ['icon draws an attention dot', JSON.stringify(iconTree).includes('"cx":13')],
+  ['row carries the three counts', iconAnchor !== undefined && iconAnchor.props['data-counts'] === 'done=1 pending=1 running=1'],
+  ['badge takes the pending color', iconBadge !== undefined && String(iconBadge.props.fill).includes('state-warn-primary')],
   ['three actionable rows', labels.filter((label) => /state\.(pending|running|done)/.test(label)).length === 3],
   ['pending outranks running', labels[0].indexOf('state.pending.approval') === 0],
   ['running outranks finished', labels[1].indexOf('state.running') === 0],
